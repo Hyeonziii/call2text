@@ -1,0 +1,30 @@
+# 보안
+.env
+*.env.*
+
+# 캐시 / 데이터
+.cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 데이터셋 (원본 데이터 – 용량 과다)
+36.금융상품·서비스 및 소비자 특성 데이터/
+25.금융분야_고객상담_데이터/
+24.공공 민원 상담 LLM 사전학습 및 Instruction Tuning 데이터/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python venv
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
