@@ -79,10 +79,10 @@ def _get_secret(key: str) -> str:
     val = os.getenv(key, "")
     if not val:
         try:
-            val = st.secrets.get(key, "")
-        except Exception:
+            val = st.secrets[key]
+        except (KeyError, AttributeError, FileNotFoundError, Exception):
             pass
-    return val
+    return val or ""
 
 _DEFAULTS = {
     "openai_api_key":     _get_secret("OPENAI_API_KEY"),
@@ -452,9 +452,11 @@ def page_main():
     st.markdown('<p class="page-title">📱 Call2Text</p>', unsafe_allow_html=True)
     st.markdown('<p class="page-sub">AI 상담 요약 · 안내 문자 자동화 | 기억해조 5조</p>', unsafe_allow_html=True)
 
-    api_key = st.session_state.get("openai_api_key", "")
+    api_key = st.session_state.get("openai_api_key", "") or _get_secret("OPENAI_API_KEY")
+    if api_key:
+        st.session_state["openai_api_key"] = api_key
     if not api_key:
-        st.error("❌ .env 파일에 OPENAI_API_KEY가 설정되지 않았습니다.")
+        st.error("❌ OpenAI API 키가 설정되지 않았습니다. ⚙️ 설정 메뉴에서 입력하거나, Streamlit Cloud의 App settings > Secrets에 OPENAI_API_KEY를 추가해주세요.")
         return
 
     # ── STEP 1: 입력 ──────────────────────────────────────────
@@ -734,7 +736,7 @@ def page_main():
             if not to_num:
                 st.error("수신 번호를 입력하세요.")
             elif not sol_key or not sol_secret:
-                st.error(".env 파일에 SOLAPI 키를 설정하세요.")
+                st.error("Solapi API 키가 설정되지 않았습니다. ⚙️ 설정 메뉴 또는 Streamlit Cloud Secrets에서 SOLAPI_API_KEY를 입력해주세요.")
             elif char_count > 300:
                 st.error("문자 내용이 300자를 초과했습니다.")
             else:
