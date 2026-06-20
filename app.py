@@ -197,33 +197,6 @@ def get_rag_engine():
         except Exception:
             continue
 
-    # 24번 공공민원 질의응답
-    pat = str(BASE_DIR / "24.공공 민원 상담 LLM 사전학습 및 Instruction Tuning 데이터" / "**" / "02.라벨링데이터" / "*L_*_질의응답.zip")
-    for zp in glob.glob(pat, recursive=True):
-        try:
-            with zipfile.ZipFile(zp) as zf:
-                jfiles = [f for f in zf.namelist() if f.endswith(".json")]
-                for fname in jfiles[:25]:
-                    try:
-                        data = json.loads(zf.read(fname).decode("utf-8"))
-                        items = data if isinstance(data, list) else [data]
-                        for item in items[:3]:
-                            content = item.get("consulting_content", "")[:300]
-                            for ig in item.get("instructions", []):
-                                for inst in ig.get("data", [])[:1]:
-                                    corpus.append({
-                                        "type": "public_qa",
-                                        "category": item.get("consulting_category", ""),
-                                        "question": inst.get("instruction", ""),
-                                        "answer": inst.get("output", ""),
-                                        "product_names": [],
-                                        "text": content,
-                                    })
-                    except Exception:
-                        continue
-        except Exception:
-            continue
-
     if not corpus:
         return None, None, []
 
