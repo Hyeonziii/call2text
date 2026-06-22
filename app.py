@@ -482,26 +482,25 @@ def get_recommended_links(ctype: str) -> list:
 # ── Brand header ──────────────────────────────────────────────
 def render_brand_header():
     imgs = get_brand_images()
-    sol_html = (
-        f'<div style="background:#fff;border-radius:14px;padding:5px;width:80px;height:80px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.15);">'
-        f'<img src="{imgs["sol"]}" style="height:70px;width:70px;object-fit:contain;"></div>'
-        if "sol" in imgs else
-        '<span style="font-size:54px;line-height:1;flex-shrink:0;">🏦</span>'
-    )
-    logo_html = (
-        f'<img src="{imgs["logo"]}" style="height:32px;object-fit:contain;filter:brightness(0) invert(1);margin-bottom:4px;">'
+    logo_left_html = (
+        f'<div style="background:#fff;border-radius:14px;padding:6px 10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.15);">'
+        f'<img src="{imgs["logo"]}" style="height:56px;object-fit:contain;"></div>'
         if "logo" in imgs else
-        '<span style="font-size:10px;font-weight:700;letter-spacing:3px;color:rgba(255,255,255,0.9);">SHINHAN BANK</span>'
+        '<span style="font-size:40px;line-height:1;flex-shrink:0;">🏦</span>'
+    )
+    sol_right_html = (
+        f'<div style="background:#fff;border-radius:12px;padding:3px;width:72px;height:72px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.15);">'
+        f'<img src="{imgs["sol"]}" style="height:64px;width:64px;object-fit:contain;"></div>'
+        if "sol" in imgs else ""
     )
     st.markdown(f"""
 <div class="brand-header">
-    {sol_html}
-    <div class="brand-text" style="flex:1;padding-left:4px;">
-        <div style="margin-bottom:4px;">{logo_html}</div>
+    {logo_left_html}
+    <div class="brand-text" style="flex:1;padding-left:12px;">
         <p class="title">Call2Text</p>
         <p class="sub">AI 상담 요약 · 안내 문자 자동화 | 기억해조 5조</p>
     </div>
-    <span class="brand-badge">SHINHAN BANK</span>
+    {sol_right_html}
 </div>
 """, unsafe_allow_html=True)
 
@@ -526,9 +525,15 @@ def page_main():
                       horizontal=True, key="input_method")
 
     def _go_to_step2(transcript: str):
-        """transcript 저장 → masked_transcript 초기화(항상 재마스킹) → step=2"""
         st.session_state["transcript"]        = transcript
-        st.session_state["masked_transcript"] = ""      # 강제 초기화로 재마스킹 보장
+        st.session_state["masked_transcript"] = ""
+        st.session_state["consultation_type"] = ""
+        st.session_state["rag_results"]       = []
+        st.session_state["sms_draft"]         = ""
+        st.session_state["shinhan_products"]  = []
+        st.session_state["consumer_products"] = []
+        st.session_state.pop("sms_edit_area",  None)
+        st.session_state.pop("_draft_changed", None)
         st.session_state["step"]              = 2
         st.rerun()
 
