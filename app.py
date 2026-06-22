@@ -64,45 +64,16 @@ if not LINKS_FILE.exists():
     LINKS_FILE.write_text(json.dumps(DEFAULT_LINKS, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-# ── Brand images (cached once per session) ────────────────────
+# ── Brand images (load from local assets) ────────────────────
 @st.cache_resource(show_spinner=False)
 def get_brand_images():
     import base64
     imgs = {}
-    hdrs = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-
-    # 쏠 캐릭터 via Wikipedia API
-    try:
-        api = requests.get(
-            "https://ko.wikipedia.org/w/api.php",
-            params={"action": "query", "titles": "파일:SOL캐릭터.png",
-                    "prop": "imageinfo", "iiprop": "url", "format": "json"},
-            headers=hdrs, timeout=8
-        )
-        for pg in api.json().get("query", {}).get("pages", {}).values():
-            img_url = (pg.get("imageinfo") or [{}])[0].get("url", "")
-            if img_url:
-                r = requests.get(img_url, headers=hdrs, timeout=12)
-                if r.ok:
-                    imgs["sol"] = f"data:image/png;base64,{base64.b64encode(r.content).decode()}"
-    except Exception:
-        pass
-
-    # Shinhan Bank logo - try several known paths
-    for logo_url in [
-        "https://www.shinhan.com/hpe/resources/img/logo_shinhan.png",
-        "https://www.shinhan.com/hpe/resources/img/logo_shinhan_white.png",
-        "https://www.shinhan.com/etc/img/common/logo.png",
-    ]:
-        try:
-            r = requests.get(logo_url, headers=hdrs, timeout=5)
-            if r.ok and len(r.content) > 500:
-                ext = logo_url.rsplit(".", 1)[-1]
-                imgs["logo"] = f"data:image/{ext};base64,{base64.b64encode(r.content).decode()}"
-                break
-        except Exception:
-            continue
-
+    assets = BASE_DIR / "assets"
+    for key, fname in [("sol", "sol.png"), ("logo", "shinhan_logo.png")]:
+        p = assets / fname
+        if p.exists():
+            imgs[key] = f"data:image/png;base64,{base64.b64encode(p.read_bytes()).decode()}"
     return imgs
 
 
@@ -512,20 +483,21 @@ def get_recommended_links(ctype: str) -> list:
 def render_brand_header():
     imgs = get_brand_images()
     sol_html = (
-        f'<img src="{imgs["sol"]}" style="height:72px;filter:drop-shadow(0 2px 10px rgba(255,107,53,0.5));flex-shrink:0;">'
+        f'<div style="background:#fff;border-radius:14px;padding:5px;width:80px;height:80px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.15);">'
+        f'<img src="{imgs["sol"]}" style="height:70px;width:70px;object-fit:contain;"></div>'
         if "sol" in imgs else
-        '<span style="font-size:54px;line-height:1;flex-shrink:0;">🤖</span>'
+        '<span style="font-size:54px;line-height:1;flex-shrink:0;">🏦</span>'
     )
     logo_html = (
-        f'<img src="{imgs["logo"]}" style="height:26px;filter:brightness(0) invert(1);margin-bottom:6px;">'
+        f'<img src="{imgs["logo"]}" style="height:32px;object-fit:contain;filter:brightness(0) invert(1);margin-bottom:4px;">'
         if "logo" in imgs else
         '<span style="font-size:10px;font-weight:700;letter-spacing:3px;color:rgba(255,255,255,0.9);">SHINHAN BANK</span>'
     )
     st.markdown(f"""
 <div class="brand-header">
     {sol_html}
-    <div class="brand-text" style="flex:1;">
-        <div style="margin-bottom:6px;">{logo_html}</div>
+    <div class="brand-text" style="flex:1;padding-left:4px;">
+        <div style="margin-bottom:4px;">{logo_html}</div>
         <p class="title">Call2Text</p>
         <p class="sub">AI 상담 요약 · 안내 문자 자동화 | 기억해조 5조</p>
     </div>
@@ -676,42 +648,27 @@ def page_main():
 
     if not st.session_state.get("shinhan_products"):
         st.session_state["shinhan_products"] = recommend_shinhan_products(ctype)
-    if not st.session_state.get("consumer_products"):
-        with st.spinner("소비자 데이터 분석 중..."):
-            st.session_state["consumer_products"] = recommend_from_consumer(masked, top_k=3)
 
-    shin_prods     = st.session_state["shinhan_products"]
-    consumer_prods = st.session_state["consumer_products"]
+    shin_prods = st.session_state["shinhan_products"]
 
-    col_sh, col_st = st.columns(2)
-    with col_sh:
-        st.markdown("**🏦 신한은행 추천 상품**")
-        if shin_prods:
-            for i, p in enumerate(shin_prods, 1):
+    st.markdown("**🏦 신한은행 추천 상품**")
+    if shin_prods:
+        cols4 = st.columns(2)
+        for i, p in enumerate(shin_prods, 1):
+            with cols4[(i - 1) % 2]:
                 st.markdown(
                     f'<div class="prod-card"><strong>{i}. {p["name"]}</strong>'
                     f'<br><small>📂 {p.get("category","")}</small>'
                     f'<br>{p.get("description","")}</div>', unsafe_allow_html=True)
-        else:
-            st.info("상품 정보 없음")
-    with col_st:
-        st.markdown("**📊 유사고객 실적 기반 추천**")
-        if consumer_prods:
-            for i, p in enumerate(consumer_prods, 1):
-                info = " · ".join(filter(None, [p.get("age",""), p.get("gender","")]))
-                st.markdown(
-                    f'<div class="prod-card-stat"><strong>{i}. {p["product_name"]}</strong>'
-                    f'<br><small>👥 유사 고객 {p["count"]:,}명 가입 | {info}</small></div>',
-                    unsafe_allow_html=True)
-        else:
-            st.info("소비자 데이터 매칭 없음")
+    else:
+        st.info("상품 정보 없음")
 
     auto_links = get_recommended_links(ctype)
     if not st.session_state.get("sms_draft"):
         with st.spinner("AI 문자 초안 생성 중..."):
             try:
                 draft = ai_generate_draft(masked, ctype, results, shin_prods,
-                                          consumer_prods, auto_links, api_key)
+                                          [], auto_links, api_key)
                 st.session_state["sms_draft"] = draft
             except Exception as e:
                 st.error(f"초안 생성 오류: {e}")
@@ -742,11 +699,10 @@ def page_main():
             tpl_names = ["(없음)"] + [t["name"] for t in templates]
             tpl_sel   = st.selectbox("📝 템플릿 선택 (재생성 시 적용)", tpl_names, key="tpl_sel_step5")
 
-        # 문자 편집 — widget key 와 sms_draft 동기화
-        current_draft = st.session_state.get("sms_draft", "")
-        st.text_area("✉️ 문자 초안 (편집 가능)", height=220,
-                     value=current_draft, key="sms_edit_area")
-        # 위젯이 편집될 때마다 sms_draft 를 동기화
+        # 문자 편집 — 프로그래밍 방식 업데이트 시 위젯 생성 전에 동기화
+        if "sms_edit_area" not in st.session_state or st.session_state.pop("_draft_changed", False):
+            st.session_state["sms_edit_area"] = st.session_state.get("sms_draft", "")
+        st.text_area("✉️ 문자 초안 (편집 가능)", height=220, key="sms_edit_area")
         st.session_state["sms_draft"] = st.session_state["sms_edit_area"]
 
         char_count = len(st.session_state["sms_draft"])
@@ -770,8 +726,8 @@ def page_main():
                         st.session_state.get("consumer_products",[]),
                         auto_links, api_key, template=tpl_content,
                     )
-                    st.session_state["sms_draft"]     = new_draft
-                    st.session_state["sms_edit_area"] = new_draft
+                    st.session_state["sms_draft"]    = new_draft
+                    st.session_state["_draft_changed"] = True
                     st.rerun()
                 except Exception as e:
                     st.error(f"재생성 오류: {e}")
@@ -790,11 +746,9 @@ def page_main():
                         unsafe_allow_html=True)
                 with c2:
                     if st.button("삽입", key=f"ins_auto_{lk['name']}_{ctype}"):
-                        cur = st.session_state.get("sms_edit_area",
-                              st.session_state.get("sms_draft",""))
-                        nv  = cur + f"\n{lk['url']}"
-                        st.session_state["sms_draft"]     = nv
-                        st.session_state["sms_edit_area"] = nv
+                        cur = st.session_state.get("sms_draft", "")
+                        st.session_state["sms_draft"]      = cur + f"\n{lk['url']}"
+                        st.session_state["_draft_changed"] = True
                         st.rerun()
 
         # ── 전체 링크 검색 + 스크롤 ──────────────────────────
@@ -821,11 +775,9 @@ def page_main():
                     with c2:
                         btn_key = f"ins_all_{lk['name']}_{lk.get('category','')}"
                         if st.button("삽입", key=btn_key):
-                            cur = st.session_state.get("sms_edit_area",
-                                  st.session_state.get("sms_draft",""))
-                            nv  = cur + f"\n{lk['url']}"
-                            st.session_state["sms_draft"]     = nv
-                            st.session_state["sms_edit_area"] = nv
+                            cur = st.session_state.get("sms_draft", "")
+                            st.session_state["sms_draft"]      = cur + f"\n{lk['url']}"
+                            st.session_state["_draft_changed"] = True
                             st.rerun()
 
     with col_send:
@@ -1028,7 +980,13 @@ STEP 5에서 템플릿을 선택하면 AI가 해당 형식으로 문자를 생�
 # Sidebar + routing
 # ═══════════════════════════════════════════════════════════════
 with st.sidebar:
-    st.markdown("## 🏦 신한은행")
+    _imgs = get_brand_images()
+    if "logo" in _imgs:
+        st.markdown(
+            f'<img src="{_imgs["logo"]}" style="height:38px;object-fit:contain;filter:brightness(0) invert(1);display:block;margin-bottom:4px;">',
+            unsafe_allow_html=True)
+    else:
+        st.markdown("## 🏦 신한은행")
     st.markdown("### Call2Text")
     st.markdown("*AI 상담 문자 자동화*")
     st.markdown("---")
