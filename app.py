@@ -525,7 +525,7 @@ def page_main():
                       horizontal=True, key="input_method")
 
     def _go_to_step2(transcript: str):
-        st.session_state["transcript"]        = transcript
+        # 공통: 하위 상태 전체 초기화
         st.session_state["masked_transcript"] = ""
         st.session_state["consultation_type"] = ""
         st.session_state["rag_results"]       = []
@@ -534,10 +534,21 @@ def page_main():
         st.session_state["consumer_products"] = []
         st.session_state.pop("sms_edit_area",  None)
         st.session_state.pop("_draft_changed", None)
-        st.session_state["step"]              = 2
+
+        if st.session_state.get("step", 0) > 0:
+            # 이미 진행 중인 세션 → step1로 완전 리셋 (빈 화면)
+            st.session_state["transcript"]   = ""
+            st.session_state["_reset_input"] = True
+            st.session_state["step"]         = 0
+        else:
+            # step=0 (초기/리셋 후) → step2로 진행
+            st.session_state["transcript"] = transcript
+            st.session_state["step"]       = 2
         st.rerun()
 
     if method == "✏️ 텍스트 직접 입력":
+        if st.session_state.pop("_reset_input", False):
+            st.session_state.pop("txt_input", None)
         txt = st.text_area(
             "상담 내용", value=st.session_state.get("transcript",""), height=180,
             placeholder="TX (상담원): 안녕하세요, 신한은행입니다.\nRX (고객): 대출 한도 문의드립니다...",
