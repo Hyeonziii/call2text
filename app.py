@@ -460,7 +460,7 @@ def ai_generate_draft(masked, ctype, rag_results, shinhan_products, consumer_pro
 # ── SMS (Solapi) ──────────────────────────────────────────────
 def send_sms(to, content, api_key, api_secret, from_num):
     date_str = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-    salt = str(uuid.uuid4())
+    salt = uuid.uuid4().hex
     sig  = hmac.new(api_secret.encode(), (date_str+salt).encode(), hashlib.sha256).hexdigest()
     headers = {
         "Authorization": f"HMAC-SHA256 apiKey={api_key}, date={date_str}, salt={salt}, signature={sig}",
